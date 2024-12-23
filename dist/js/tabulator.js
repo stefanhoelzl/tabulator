@@ -1,4 +1,4 @@
-/* Tabulator v6.3.0 (c) Oliver Folkerd 2024 */
+/* Tabulator v6.3.0 (c) Oliver Folkerd 2025 */
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 	typeof define === 'function' && define.amd ? define(factory) :
@@ -26035,8 +26035,8 @@
 			this.right = 0;
 			
 			this.table = table;
-			this.start = {row:0, col:0};
-			this.end = {row:0, col:0};
+			this.start = {row:undefined, col:undefined};
+			this.end = {row:undefined, col:undefined};
 
 			if(this.rangeManager.rowHeader){
 				this.left = 1;
@@ -26601,7 +26601,8 @@
 			this.registerTableOption("selectableRangeClearCells", false); //allow clearing of active range
 			this.registerTableOption("selectableRangeClearCellsValue", undefined); //value for cleared active range
 			this.registerTableOption("selectableRangeAutoFocus", true); //focus on a cell after resetRanges
-			
+			this.registerTableOption("selectableRangeInitializeDefault", true); //initializes default range on cell [0,0]
+
 			this.registerTableFunction("getRangesData", this.getRangesData.bind(this));
 			this.registerTableFunction("getRanges", this.getRanges.bind(this));
 			this.registerTableFunction("addRange", this.addRangeFromComponent.bind(this));
@@ -26652,7 +26653,7 @@
 			
 			this.table.rowManager.element.addEventListener("keydown", this.keyDownEvent);
 			
-			this.resetRanges();
+			this.resetRanges(false);
 			
 			this.table.rowManager.element.appendChild(this.overlay);
 			this.table.columnManager.element.setAttribute("tabindex", 0);
@@ -26687,7 +26688,7 @@
 			this.subscribe("scroll-horizontal", this.layoutChange.bind(this));
 			
 			this.subscribe("data-destroy", this.tableDestroyed.bind(this));
-			this.subscribe("data-processed", this.resetRanges.bind(this));
+			this.subscribe("data-processed", this.resetRanges.bind(this, false));
 			
 			this.subscribe("table-layout", this.layoutElement.bind(this));
 			this.subscribe("table-redraw", this.redraw.bind(this));
@@ -27318,7 +27319,7 @@
 		redraw(force) {
 			if (force) {
 				this.selecting = 'cell';
-				this.resetRanges();
+				this.resetRanges(false);
 				this.layoutElement();
 			}
 		}
@@ -27433,6 +27434,7 @@
 		
 		
 		getActiveCell() {
+			if(!this.activeRange) return;
 			return this.getCell(this.activeRange.start.row, this.activeRange.start.col);
 		}
 		
@@ -27468,27 +27470,29 @@
 			return range;
 		}
 		
-		resetRanges() {
+		resetRanges(forceNewRange = true) {
 			var range, cell, visibleCells;
-			
+
 			this.ranges.forEach((range) => range.destroy());
 			this.ranges = [];
-			
-			range = this.addRange();
-			
-			if(this.table.rowManager.activeRows.length){
-				visibleCells = this.table.rowManager.activeRows[0].cells.filter((cell) => cell.column.visible);
-				cell = visibleCells[this.rowHeader ? 1 : 0];
 
-				if(cell){
-					range.setBounds(cell);
-					if(this.options("selectableRangeAutoFocus")){
-						this.initializeFocus(cell);
+			if(forceNewRange || this.options("selectableRangeInitializeDefault")) {
+				range = this.addRange();
+
+				if(this.table.rowManager.activeRows.length){
+					visibleCells = this.table.rowManager.activeRows[0].cells.filter((cell) => cell.column.visible);
+					cell = visibleCells[this.rowHeader ? 1 : 0];
+
+					if(cell){
+						range.setBounds(cell);
+						if(this.options("selectableRangeAutoFocus")){
+							this.initializeFocus(cell);
+						}
 					}
 				}
+
+				return range;
 			}
-			
-			return range;
 		}
 		
 		tableDestroyed(){
